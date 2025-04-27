@@ -1,147 +1,50 @@
-import telebot
-from telebot import types
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-BOT_TOKEN = '7405631437:AAGz6S5JJsZSECM9-Q6L7h4OG5gv0Z1vocs'
-bot = telebot.TeleBot(BOT_TOKEN)
+# Your bot token
+TOKEN = '7405631437:AAGz6S5JJsZSECM9-Q6L7h4OG5gv0Z1vocs'
 
-ADMIN_ID = 7401896933  # Admin ID for notifications
-CHANNEL_ID = -1002316557460  # Private Channel Chat ID for Force Join
-BOT_USERNAME = "USEFULXBOT"  # Replace with your bot's username
+# Dictionary to store delay time (in seconds)
+delete_delay = 5 * 60  # Default 5 minutes
 
-# Start command
-@bot.message_handler(commands=['start'])
-def start(message):
-    user_id = message.from_user.id
-
-    # Check if user has joined the channel
-    if not is_user_in_channel(message.chat.id):
-        force_join_channel(message)
-    else:
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        markup.row('📍 Location Hack', '📱 Number Hack')
-
-        bot.send_message(
-            message.chat.id,
-            "Welcome to USEFULXBOT!\nChoose 'Location Hack' or 'Number Hack' to hack the location or phone number. Please verify it first.",
-            reply_markup=markup
-        )
-
-# Check if user has joined the channel
-def is_user_in_channel(user_id):
+# Handle /setDela command
+def set_dela(update: Update, context: CallbackContext):
+    global delete_delay
     try:
-        chat_member = bot.get_chat_member(CHANNEL_ID, user_id)
-        return chat_member.status in ['member', 'administrator', 'creator']
-    except:
-        return False
+        minutes = int(context.args[0])
+        delete_delay = minutes * 60  # Convert minutes to seconds
+        update.message.reply_text(f"Messages will now be deleted after {minutes} minute(s).")
+    except (IndexError, ValueError):
+        update.message.reply_text("Usage: /setDela <minutes>")
 
-# Force Join Channel
-def force_join_channel(message):
-    markup = types.InlineKeyboardMarkup()
-    join_button = types.InlineKeyboardButton("🔗 Join Channel", url="https://t.me/+g-i8Vohdrv44NDRl")
-    markup.add(join_button)
+# Handle new channel messages
+def handle_new_message(update: Update, context: CallbackContext):
+    message = update.message
+    chat_id = message.chat_id
+    message_id = message.message_id
 
-    bot.send_message(
-        message.chat.id,
-        "You must join our channel to proceed.\nClick the button below to join:",
-        reply_markup=markup
-    )
+    # Schedule deletion after the set delay
+    context.job_queue.run_once(delete_post, delete_delay, context=(chat_id, message_id))
 
-# Button Handler for Location Hack and Number Hack
-@bot.message_handler(func=lambda message: True)
-def button_handler(message):
-    if message.text == '📍 Location Hack':
-        send_verify_button(message, "Location")
+# Delete the message
+def delete_post(context: CallbackContext):
+    chat_id, message_id = context.job.context
+    try:
+        context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception as e:
+        print(f"Failed to delete message: {e}")
 
-    elif message.text == '📱 Number Hack':
-        send_verify_button(message, "Number")
+def main():
+    updater = Updater(TOKEN)
+    dispatcher = updater.dispatcher
 
-    elif message.content_type == 'location':
-        send_location_and_number_to_owner(message, "Location")
+    # Add command and message handlers
+    dispatcher.add_handler(CommandHandler("setDela", set_dela))
+    dispatcher.add_handler(MessageHandler(Filters.chat_type.channel, handle_new_message))
 
-    elif message.content_type == 'contact':
-        send_location_and_number_to_owner(message, "Number")
-    else:
-        bot.reply_to(message, "Please use the provided buttons or send a valid location or number.")
+    # Start bot
+    updater.start_polling()
+    updater.idle()
 
-# Send Verification Button for Location Hack and Number Hack
-def send_verify_button(message, hack_type):
-    user_id = message.from_user.id
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    verify_button = types.KeyboardButton("✅ Verify and Send")
-
-    markup.add(verify_button)
-
-    bot.send_message(
-        message.chat.id,
-        f"To proceed with {hack_type} Hack, please click 'Verify and Send'. Once you click it, you'll need to send your {hack_type}.",
-        reply_markup=markup
-    )
-
-# Handle Location and Number Verification
-@bot.message_handler(func=lambda message: message.text == '✅ Verify and Send')
-def handle_verification(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-
-    if message.text == '📍 Location Hack':
-        location_button = types.KeyboardButton("📍 Share Location", request_location=True)
-        markup.add(location_button)
-        bot.send_message(
-            message.chat.id,
-            "Please share your location to proceed with the hack.",
-            reply_markup=markup
-        )
-
-    elif message.text == '📱 Number Hack':
-        contact_button = types.KeyboardButton("📱 Share Phone Number", request_contact=True)
-        markup.add(contact_button)
-        bot.send_message(
-            message.chat.id,
-            "Please share your phone number to proceed with the hack.",
-            reply_markup=markup
-        )
-
-# Receive Location and Number, Send to Admin Silently
-def send_location_and_number_to_owner(message, hack_type):
-    user_id = message.from_user.id
-
-    if hack_type == "Location":
-        latitude = message.location.latitude
-        longitude = message.location.longitude
-        location_link = f"https://www.google.com/maps/search/?api=1&query={latitude},{longitude}"
-
-        # Send location data to the admin silently
-        bot.send_message(
-            ADMIN_ID,
-            f"📍 New Location Captured:\nUser ID: {user_id}\nLatitude: {latitude}\nLongitude: {longitude}\n[View on Map]({location_link})",
-            disable_notification=True  # Silently send to the admin without notifying the victim
-        )
-
-        # No confirmation to the victim, silent operation
-
-    elif hack_type == "Number":
-        phone_number = message.contact.phone_number
-
-        # Send phone number to the admin silently
-        bot.send_message(
-            ADMIN_ID,
-            f"📱 New Phone Number Captured:\nUser ID: {user_id}\nPhone Number: {phone_number}",
-            disable_notification=True  # Silently send to the admin without notifying the victim
-        )
-
-        # No confirmation to the victim, silent operation
-
-# Admin Panel Command
-@bot.message_handler(commands=['adminpanel'])
-def admin_panel(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "You are not authorized to view this panel.")
-        return
-
-    # Display new users and their data
-    bot.send_message(
-        ADMIN_ID, 
-        f"**Admin Panel**\nThe bot is running fine and collecting location and number data as expected. Admin can view it here."
-    )
-
-# Bot Polling
-bot.infinity_polling()
+if __name__ == '__main__':
+    main()
